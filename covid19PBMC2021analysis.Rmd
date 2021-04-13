@@ -1,0 +1,220 @@
+---
+title: "covid19_PBMC_2021 data"
+author: "Janis Corona"
+date: "4/13/2021"
+output: html_document
+---
+
+Covid 19 blood samples of mild, severe, and healthy cases with 5 samples of different people each. NCBI datasource GSE164805.
+```{r}
+library(dplyr)
+```
+
+Peripheral Blood Mononucleotide Cells or PBMC samples of healthy (5), mild (5), and severe (5).
+```{r}
+samples <- read.csv('covid19caseTypeSamples.csv',sep=',', header=T, na.strings=c('',' ','NA'))
+head(samples)
+```
+```{r}
+colnames(samples)
+```
+
+
+meta information with gender and age of the sample ID number with the class type of healthy, mild, or severe
+```{r}
+meta <- read.csv('covid19sampleMetaInformation.csv',sep=',',header=T,
+                 na.strings=c('',' ','NA'))
+row.names(meta) <- meta$sample_ID
+meta <- meta[,-1]
+```
+
+
+```{r}
+head(meta)
+```
+
+
+```{r}
+colnames(meta)
+```
+
+Read in the platform data to merge the IDs of samples to their gene descriptions.
+```{r}
+platform <- read.delim('GPL26963-20921.txt',sep='\t',header=T, 
+                     comment.char='#', na.strings=c('',' ','NA'))
+```
+
+
+```{r}
+head(platform)
+```
+
+
+```{r}
+colnames(platform)
+```
+
+Keep only a few of the platform variables. The strand, chromosome number for linkage analysis on the same chromosome and strand direction as forward (+ assumed) and reverse (- assumed), and the sequence for copy number variations of the same gene, and also the ID to merge the gene information with the sample ID.The ACC is the ensemble transcript ID and the ORF variable or column is the gene name
+```{r}
+genes <- platform[,c(1,3,4,7,8,12)]
+head(genes)
+```
+
+
+```{r}
+data <- merge(platform, samples, by.x='ID', by.y='ID')
+head(data)
+```
+
+lets make a gene table from only ORF and one from only ACC or the ensembl transcript IDs.
+```{r}
+geneNames <- data[,c(4,14:28)]
+GeneNames <- geneNames[complete.cases(geneNames),]
+head(GeneNames)
+```
+
+
+```{r}
+Ensemble <- data[,c(3,14:28)]
+EnsembleNames <- Ensemble[complete.cases(Ensemble),]
+head(EnsembleNames)
+```
+
+Lets add in the mean values of the healthy, mild, and severe cases.
+
+```{r}
+metaT <- as.data.frame(t(meta))
+case <- as.character(paste(metaT$case_type))
+colnames(GeneNames)[2:16] <- case
+GeneNames$healthyMean <- apply(GeneNames[,2:6],1,mean)
+GeneNames$mildMean <- apply(GeneNames[,7:11],1,mean)
+GeneNames$severeMean <- apply(GeneNames[,12:16],1,mean)
+
+```
+
+Lets add in some fold change values of mild/healthy and severe/healthy. To see the proportion of change in the mild and severe case types compared to the healthy mean values per gene.
+```{r}
+GeneNames$FC_mildOverHealthy <- GeneNames$mildMean/GeneNames$healthyMean
+GeneNames$FC_severeOverHealthy <- GeneNames$severeMean/GeneNames$healthyMean
+```
+
+Lets see the range for these genes fold change values
+```{r}
+range(GeneNames$FC_mildOverHealthy)
+range(GeneNames$FC_severeOverHealthy)
+```
+
+From the above, some were reduced by more than half or a little over 70% while some genes were over expressed by close to 400% of the healthy mean values. Lets see what genes are in the top most expressed and bottom least expressed or suppressed groups.
+```{r}
+suppressed <- GeneNames[GeneNames$FC_severeOverHealthy<0.4,]
+overexpressed <- GeneNames[GeneNames$FC_severeOverHealthy>3,]
+```
+
+
+```{r}
+suppressedList <- suppressed$ORF
+overexpressedList <- overexpressed$ORF
+print('suppressed genes:')
+suppressedList
+print('overexpressed genes:')
+overexpressedList
+```
+
+Now lets use the dplyr package to group by the genes on original data and get the number of genes and copynumber sequence data if available extracting the most suppressed and most over expressed genes.
+```{r}
+Genes <- genes[!is.na(genes$ORF),]
+ORFgenes <- Genes %>% group_by(ORF) %>% count(ORF) 
+DuplicatedORFgenes <- ORFgenes[ORFgenes$n>1,]
+colnames(DuplicatedORFgenes)[2] <- 'numberOfGenes'
+```
+
+Lets see if any of these over or under expressed genes have any copy number variants or CVNs.
+```{r}
+
+suppressedAndDuplicated <- merge(DuplicatedORFgenes,suppressed,
+                                 by.x='ORF',by.y='ORF')
+suppressedAndDuplicated
+```
+
+
+```{r}
+overexpressedAndDuplicated <- merge(DuplicatedORFgenes, overexpressed,
+                                    by.x='ORF',by.y='ORF')
+overexpressedAndDuplicated
+```
+
+Lets make a list to get the sequence IDs of these genes if available.
+```{r}
+overAndDuplicatedList <- overexpressedAndDuplicated$ORF
+underAndDuplicatedList <- suppressedAndDuplicated$ORF
+
+ORF_sequence <- data[,c(4,12)]
+overexpressedAndDuplicated2 <- merge(ORF_sequence,
+                                     overexpressedAndDuplicated,                                                          by.x='ORF',by.y='ORF')
+suppressedAndDuplicated2 <- merge(ORF_sequence,
+                                  suppressedAndDuplicated,
+                                  by.x='ORF',by.y='ORF')
+```
+
+
+```{r}
+overexpressedAndDuplicated2
+```
+Many of our overly expressed or up regulated genes have alternate genotypes or mutations in having more than one genetic sequence for each gene. There are only 6 genes that are overly expressed more than 3 fold the healthy cases for the severe cases, but some of these six genes have more than 2 CNVs and up to 8 CNVs. As we can see in the data table above.
+
+
+The data table below shows we have as many as 10 genes that are under expressed or down regulated more than 60% in severe compared to healthy gene expression values based on the group mean values. The CNVs for some of these genes give mutations greater than 3 CNVs and up to 15 CNVs per gene. 
+```{r}
+suppressedAndDuplicated2
+```
+
+This data could show the target genes affected by Covid-19 in PBMC data. There could also be linked gene analysis of these genes. If these up and down regulated genes are on the same strand of the same chromosome, they are considered a linked group, and also depending on how far away these genes are from each other on the same strand, this could be a clue to where gene therapeutics need to target to prevent these mutations from forming in people infected with severe strains of covid-19.
+
+Lets see if any of these CNVs are on the same strand of any chromosome to compare a group of linked genes using the data table created earlier called genes and merging by sequence.
+```{r}
+linkedSuppressed <- merge(genes,
+                          suppressedAndDuplicated2,
+                          by.x='SEQUENCE',by.y='SEQUENCE')
+linkedSuppressed <- linkedSuppressed[order(linkedSuppressed$CHROM),]
+linkedSuppressed
+```
+The only genes that are on the same strand of the same chromosome on our data of suppressed and duplicated genes are the TRABD2A and AC104809.2 genes on the reverse strand of chromosome 2. All other suppressed and duplicated genes are on different chromosomes and/or different strands of same chromosome. Just by looking at the data table above. There could be a linkage group on chromosome 2 for the reverse strand.
+
+```{r}
+linkedOverExpressed <- merge(genes,overexpressedAndDuplicated2,
+                             by.x='SEQUENCE',by.y='SEQUENCE')
+linkedOverExpressed <- linkedOverExpressed[order(linkedOverExpressed$CHROM),]
+linkedOverExpressed
+```
+Looking at the table above, there are no linked genes in our over expressed and duplicate genes list of genes with more than 1 copy number variation and being more than 3 fold expressed in severe compared to healthy cases.
+
+Lets look at those two genes in our suppressed list that could possibly be linked, and find out how far away they are on the reverse strand of chromosome 2 for the TRABD2A and AC104809.2 genes
+
+```{r}
+linkedPossibility <- subset(data, data$ORF=='TRABD2A' | data$ORF=='AC104809.2')
+linkedPossibility
+```
+We can see from the data table below that the TRABD2A gene starts at 85048790 kb pair and ends at 85108369. While the AC104809.2 gene starts at 241894441 kb pair and ends at 241906868. 
+```{r}
+print('space between the end of TRABD2A and beginning of AC104809.2:')
+241894434-85108369
+print('length of TRABD2A genes:')
+85108369-85048790
+85062628-85048790
+print('length of AC104809.2 genes:')
+241898771-241894441
+241906868-241894034
+
+```
+This is a space of 156786065 kb pairs between the two genes. The length of the TRABD2A gene is 59,579 kb pairs long for CNV1 and 13,838 kb pairs long for CNV 2.The CNV 1 of AC104809.2 is 4,330 kb pairs long and 12,834 kb pairs long for its CNV 2.
+
+If we take the space between these two genes on the reverse strand of chromosome 2, we can see the number of genes that could possibly fit in this space span of 156,786,065 kb pair length.
+```{r}
+156786065/((12834+4330)/2)
+156786065/((59579+13838)/2)
+```
+There is a possibility of 4,271 genes similar to TRABD2A existing in this space of the same chromosome 2 reverse strand, and 18,269 genes similar to the AC104809.2 gene. This doesn't appear to show significance of these two genes being linked as a group in affected genes of the covid-19 virus. Because literally thousands of genes could be inbetween these two genes and aren't in our groups of genes more than doubled 3 fold or under expressed by more than 60% and also having any amount of CNVs.
+
+
+
+

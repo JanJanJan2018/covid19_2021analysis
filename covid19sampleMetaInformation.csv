@@ -1,0 +1,4 @@
+sample_ID,GSM5019817,GSM5019818,GSM5019819,GSM5019820,GSM5019821,GSM5019822,GSM5019823,GSM5019824,GSM5019825,GSM5019826,GSM5019827,GSM5019828,GSM5019829,GSM5019830,GSM5019831
+case_type,healthy_1,healthy_2,healthy_3,healthy_4,healthy_5,mild_1,mild_2,mild_3,mild_4,mild_5,severe_1,severe_2,severe_3,severe_4,severe_5
+gender,male,male,male,male,female,male,male,male,male,female,male,male,male,male,male
+age,62,56,54,71,56,55,44,51,54,53,54,52,73,51,60
