@@ -6,6 +6,10 @@ output: html_document
 ---
 
 Covid 19 blood samples of mild, severe, and healthy cases with 5 samples of different people each. NCBI datasource GSE164805.
+Files can be found at https://github.com/JanJanJan2018/covid19_2021analysis/upload
+and the official link to the source at https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE164805
+
+
 ```{r}
 library(dplyr)
 ```
@@ -215,6 +219,59 @@ If we take the space between these two genes on the reverse strand of chromosome
 ```
 There is a possibility of 4,271 genes similar to TRABD2A existing in this space of the same chromosome 2 reverse strand, and 18,269 genes similar to the AC104809.2 gene. This doesn't appear to show significance of these two genes being linked as a group in affected genes of the covid-19 virus. Because literally thousands of genes could be inbetween these two genes and aren't in our groups of genes more than doubled 3 fold or under expressed by more than 60% and also having any amount of CNVs.
 
+We can look at a list of those genes right now.
+```{r}
+GenesChrom2Reverse <- subset(Genes, Genes$CHROM=='chr2' & Genes$STRAND=='-')
+GenesCh2Rev_unique <- unique(GenesChrom2Reverse$ORF)
+GenesCh2Rev_unique
+```
 
+There are 44,824 unique genes located in that space of chromosome 2 on the reverse strand.
+```{r}
+GenesChrom2Reverse
+```
 
+Lets compare these list of genes we made earlier with a study of six different research studies gathered last year on alzheimer, flu vaccines and antibiotics, tetanis vaccinations, hemochromatosis, myocardial infarction males, and overweight females using green tea extract to lose weight. 
+```{r}
+otherStudies <- read.csv('all_6_studies.csv', sep=',', header=T, 
+                         na.strings=c('',' ','NA'))
+```
+
+```{r}
+head(otherStudies)
+```
+
+```{r}
+colnames(otherStudies)
+```
+
+```{r}
+otherDF <- otherStudies[(otherStudies$GENE_SYMBOL %in% overAndDuplicatedList) | (otherStudies$GENE_SYMBOL %in% underAndDuplicatedList),]
+otherDF
+```
+There are 3 genes that are in the list of over and under expressed genes in our covid-19 dataframe of genes that are more than 3 fold up regulated or less than 60% down regulated as well as having more than one CNV. Those genes are shown above to be AMPH, SPP1, and ZNF627. Lets look at what these gene values are in each of these other studies. There are original samples and fold change values in a fat dataframe for these six studies of blood samples. 
+```{r}
+dataBlood7studies <- merge(otherDF,overexpressedAndDuplicated2,
+                           by.x='GENE_SYMBOL',by.y='ORF')
+dataBlood7studies2 <- merge(otherDF,suppressedAndDuplicated2,
+                            by.x='GENE_SYMBOL', by.y='ORF')
+studies7_DF <- rbind(dataBlood7studies,dataBlood7studies2)
+```
+
+```{r}
+fc <- grep('FC',colnames(studies7_DF))
+mean <- grep('[Mm]ean',colnames(studies7_DF))
+studies7_DF2 <- studies7_DF[,c(1,237,238,mean,fc)]
+studies7_DF2
+```
+
+```{r}
+colnames(studies7_DF2)
+```
+
+```{r}
+studies7_DF2
+```
+
+In the above tables the study mean or average values are given per gene, when we extracted the mean values it was of the gene not sequence, but we attached the sequence information for CNV data from our covid19 data. All values other than the number of genes is the same for each gene, not sequence. The columns with 'FC' in them toward the later columns in this dataframe are for fold change compared to healthy. The hemochromatosis groups were in 3 groups divided by age and female or males hence the ending in f or m. The FC_t1 through FCB_21 are columns for flu vaccinated blood that was either treated or not treated with antibiotics over 1 day, 3 days, 7 days, 21 days or fold change both for 1 day, 3 days, 7 days, 21 days where both means fold change of the treated to not treated for 1 day. The tetanis vaccinated only have samples of tetanis vaccinated, not healthy blood. None of the other fold change values from the six other studies gets as high as 3 fold or as low as 60% down regulation. But it was interesting to compare.
 
